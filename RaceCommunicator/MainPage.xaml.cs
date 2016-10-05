@@ -45,6 +45,7 @@ namespace RaceCommunicator
             AudioEngine.Instance.Initialize();
 
             SetupUIRefreshTimer();
+            slider.Value = AudioEngine.Instance.RecordingThreshold * 100;
         }
 
         private void SetupUIRefreshTimer()

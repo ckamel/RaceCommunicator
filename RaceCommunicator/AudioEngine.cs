@@ -84,7 +84,7 @@ namespace RaceCommunicator
         public async Task Initialize()
         {
             LastObservedDecibelValue = 0;
-            RecordingThreshold = 0.1;
+            RecordingThreshold = 0.05;
             
             await InitStorage().ConfigureAwait(false);
 
@@ -234,7 +234,6 @@ namespace RaceCommunicator
 
             DisposeCurrentGraph();
             AudioGraphSettings settings = new AudioGraphSettings(AudioRenderCategory.Speech);
-            settings.DesiredSamplesPerQuantum = 100;
             settings.PrimaryRenderDevice = SelectedOutputDevice;
 
             CreateAudioGraphResult result = await AudioGraph.CreateAsync(settings);
@@ -285,6 +284,10 @@ namespace RaceCommunicator
         private void AudioGraph_QuantumProcessed(AudioGraph sender, object args)
         {
             AudioFrame frame = monitoringNode.GetFrame();
+            if (frame.Duration < TimeSpan.FromMilliseconds(5))
+            {
+                return;
+            }
             ProcessAudioFrame(frame);
 
             if (LastObservedDecibelValue > RecordingThreshold && !isRecording)
