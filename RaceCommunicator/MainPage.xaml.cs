@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
+
 using Windows.Devices.Enumeration;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
@@ -26,6 +27,9 @@ namespace RaceCommunicator
     /// </summary>
     public sealed partial class MainPage : Page
     {
+
+        private DispatcherTimer refreshTimer;
+
         public MainPage()
         {
             this.InitializeComponent();
@@ -39,6 +43,21 @@ namespace RaceCommunicator
             this.startButton.IsEnabled = AudioEngine.Instance.CanStartRecording();
 
             AudioEngine.Instance.Initialize();
+
+            SetupUIRefreshTimer();
+        }
+
+        private void SetupUIRefreshTimer()
+        {
+            refreshTimer = new DispatcherTimer();
+            refreshTimer.Tick += RefreshUI;
+            refreshTimer.Interval = TimeSpan.FromMilliseconds(50);
+            refreshTimer.Start();
+        }
+
+        private void RefreshUI(object sender, object e)
+        {
+            decibelTextbox.Text = (AudioEngine.Instance.LastObservedDecibelValue * 100).ToString();
         }
 
         private async void OnInputDevicesAvailable(object sender, EventArgs e)
@@ -106,10 +125,12 @@ namespace RaceCommunicator
 
         private void startButton_Click(object sender, RoutedEventArgs e)
         {
-            AudioEngine.Instance.StartRecording();
-            Task delay = Task.Delay(5000);
-            delay.Wait();
-            AudioEngine.Instance.StopRecording();
+            AudioEngine.Instance.StartMonitoring();
+        }
+
+        private void slider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            AudioEngine.Instance.RecordingThreshold = e.NewValue / 100.0;
         }
     }
 }

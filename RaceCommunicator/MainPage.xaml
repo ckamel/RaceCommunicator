@@ -13,6 +13,10 @@
         <TextBlock x:Name="textBlock_Copy" HorizontalAlignment="Left" Height="32" Margin="10,115,0,0" TextWrapping="Wrap" Text="Speakers" VerticalAlignment="Top" Width="117"/>
         <ComboBox x:Name="outputDeviceComboBox" HorizontalAlignment="Left" Margin="167,110,0,0" VerticalAlignment="Top" Width="420" SelectionChanged="outputDeviceComboBox_SelectionChanged"/>
         <Button x:Name="startButton" Content="Start" HorizontalAlignment="Left" Margin="167,174,0,0" VerticalAlignment="Top" Width="144" BorderBrush="#FF0EEE15" IsEnabled="False" Click="startButton_Click"/>
+        <TextBox x:Name="decibelTextbox" HorizontalAlignment="Left" Margin="167,239,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" IsEnabled="False"/>
+        <TextBlock x:Name="textBlock_Copy1" HorizontalAlignment="Left" Height="32" Margin="10,239,0,0" TextWrapping="Wrap" Text="Volume" VerticalAlignment="Top" Width="117"/>
+        <TextBlock x:Name="textBlock_Copy2" HorizontalAlignment="Left" Height="32" Margin="10,288,0,0" TextWrapping="Wrap" Text="Recording Threshold" VerticalAlignment="Top" Width="144"/>
+        <Slider x:Name="slider" HorizontalAlignment="Left" Margin="167,281,0,0" VerticalAlignment="Top" Width="786" Maximum="100" ValueChanged="slider_ValueChanged" Value="10"/>
 
     </Grid>
 </Page>

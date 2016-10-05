@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
 using Windows.Foundation;
+using Windows.Media;
 using Windows.Media.Audio;
 using Windows.Media.Capture;
 using Windows.Media.Devices;
@@ -15,6 +17,14 @@ using Windows.Storage.Pickers;
 
 namespace RaceCommunicator
 {
+    [ComImport]
+    [Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    unsafe interface IMemoryBufferByteAccess
+    {
+        void GetBuffer(out byte* buffer, out uint capacity);
+    }
+
     public sealed class AudioEngine
     {
         public static readonly AudioEngine Instance = new AudioEngine();
@@ -51,17 +61,37 @@ namespace RaceCommunicator
         private AudioDeviceInputNode deviceInputNode;
         private AudioFileOutputNode fileOutputNode;
         private AudioDeviceOutputNode deviceOutputNode;
+        private AudioFrameOutputNode monitoringNode;
 
         private StorageFolder fileSaveFolder;
+        private bool isRecording = false;
+        private int numSamplesUnderThreshold = 0;
+        private int numSamplesOverThreshold = 0;
+        private int numSamplesToWaitBeforeRecordingStop = 100;
+        private int numSamplesToWaitBeforeRecordingStart = 1;
+
+        public double RecordingThreshold
+        {
+            get; set;
+        }
+
+        public double LastObservedDecibelValue
+        {
+            get;
+            private set;
+        }
 
         public async Task Initialize()
         {
+            LastObservedDecibelValue = 0;
+            RecordingThreshold = 0.1;
+            
             await InitStorage().ConfigureAwait(false);
 
             await EnumerateInputDevices().ConfigureAwait(false);
             await EnumerateOutputDevices().ConfigureAwait(false);
 
-            await CreateAudioGraph().ConfigureAwait(continueOnCapturedContext: false);
+            await CreateAudioGraph().ConfigureAwait(continueOnCapturedContext: false);            
             //StartMonitoring();
         }
 
@@ -134,14 +164,21 @@ namespace RaceCommunicator
             return SelectedInputDevice != null && SelectedOutputDevice != null;
         }
 
-        public void StartRecording()
+        public void StartMonitoring()
         {
             currentGraph.Start();
         }
 
-        public void StopRecording()
+        private void StartRecording()
         {
-            currentGraph.Stop();
+            isRecording = true;
+            fileOutputNode.Start();
+        }
+
+        private void StopRecording()
+        {
+            isRecording = false;
+            fileOutputNode.Stop();
         }
 
         public event EventHandler<bool> RecordingEnabledChanged
@@ -191,17 +228,13 @@ namespace RaceCommunicator
                 this.outputDevicesEnumerated -= value;
             }
         }
-
-        private void StartMonitoring()
-        {
-
-        }
         
         private async Task<bool> CreateAudioGraph()
         {
 
             DisposeCurrentGraph();
             AudioGraphSettings settings = new AudioGraphSettings(AudioRenderCategory.Speech);
+            settings.DesiredSamplesPerQuantum = 100;
             settings.PrimaryRenderDevice = SelectedOutputDevice;
 
             CreateAudioGraphResult result = await AudioGraph.CreateAsync(settings);
@@ -215,27 +248,96 @@ namespace RaceCommunicator
 
             currentGraph = result.Graph;
 
+            if (!await CreateInputNode())
+            {
+                return false;
+            }
+
+            if (!await CreateFileSaveNode())
+            {
+                return false;
+            }
+
+            CreateMonitoringNode();
+
             // Create a device output node
             if (! await CreateOutputNode())
             {
                 return false;
             }
 
-            if (! await CreateInputNode())
-            {
-                return false;
-            }
-
-            if (! await CreateFileSaveNode())
-            {
-                return false;
-            }
-
+            fileOutputNode.Stop();
+            deviceInputNode.AddOutgoingConnection(monitoringNode);
             deviceInputNode.AddOutgoingConnection(deviceOutputNode);
             deviceInputNode.AddOutgoingConnection(fileOutputNode);
 
             return true;            
             //rootPage.NotifyUser("Graph successfully created!", NotifyType.StatusMessage);
+        }
+
+        private void CreateMonitoringNode()
+        {
+            monitoringNode = currentGraph.CreateFrameOutputNode();
+            currentGraph.QuantumProcessed += AudioGraph_QuantumProcessed;
+
+        }
+
+        private void AudioGraph_QuantumProcessed(AudioGraph sender, object args)
+        {
+            AudioFrame frame = monitoringNode.GetFrame();
+            ProcessAudioFrame(frame);
+
+            if (LastObservedDecibelValue > RecordingThreshold && !isRecording)
+            {
+                numSamplesOverThreshold++;
+                if (numSamplesOverThreshold > numSamplesToWaitBeforeRecordingStart)
+                {
+                    StartRecording();
+                    numSamplesUnderThreshold = 0;
+                }
+            }
+            else if (LastObservedDecibelValue < RecordingThreshold && isRecording)
+            {
+                numSamplesUnderThreshold++;                
+
+                if (numSamplesUnderThreshold > numSamplesToWaitBeforeRecordingStop)
+                {
+                    StopRecording();
+                    numSamplesOverThreshold = 0;
+                }
+            }
+        }
+
+        unsafe private void ProcessAudioFrame(AudioFrame frame)
+        {
+            using (AudioBuffer buffer = frame.LockBuffer(AudioBufferAccessMode.Write))
+            using (IMemoryBufferReference reference = buffer.CreateReference())
+            {
+                byte* dataInBytes;
+                uint capacityInBytes;
+                float* dataInFloat;
+
+                // Get the buffer from the AudioFrame
+                ((IMemoryBufferByteAccess)reference).GetBuffer(out dataInBytes, out capacityInBytes);
+                if (capacityInBytes == 0)
+                {
+                    LastObservedDecibelValue = 0;
+                    return;
+                }
+
+                dataInFloat = (float*)dataInBytes;
+                uint numFloats = capacityInBytes / sizeof(float);
+
+                double sum = 0;
+                for (uint i = 0; i < numFloats; ++i)
+                {
+                    double sample = Math.Abs(dataInFloat[i]);
+                    sum += sample;
+                }
+
+                double rms = sum / numFloats;
+                LastObservedDecibelValue = rms; //20 * Math.Log10(rms);
+            }
         }
 
         private async Task<bool> CreateOutputNode()
@@ -284,8 +386,7 @@ namespace RaceCommunicator
                 // FileOutputNode creation failed
                 return false;
             }
-
-            // Connect the input node to both output nodes
+            
             fileOutputNode = fileOutputNodeResult.FileOutputNode;
             return true;
 
