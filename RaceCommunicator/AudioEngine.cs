@@ -64,11 +64,12 @@ namespace RaceCommunicator
         private AudioFrameOutputNode monitoringNode;
 
         private StorageFolder fileSaveFolder;
-        private bool isRecording = false;
-        private int numSamplesUnderThreshold = 0;
-        private int numSamplesOverThreshold = 0;
-        private int numSamplesToWaitBeforeRecordingStop = 100;
-        private int numSamplesToWaitBeforeRecordingStart = 1;
+        private int millisecondsUnderThreshold = 0;
+        private int millisecondsOverThreshold = 0;
+        public int MillisecondsBeforeRecordingStop { get; set; }
+        public int MillisecondsBeforeRecordingStart { get; set; }
+        public bool IsRecording { get; private set; }
+        public bool IsMonitoring { get; private set; }
 
         public double RecordingThreshold
         {
@@ -84,15 +85,17 @@ namespace RaceCommunicator
         public async Task Initialize()
         {
             LastObservedDecibelValue = 0;
-            RecordingThreshold = 0.05;
+            RecordingThreshold = 0.02;
+            MillisecondsBeforeRecordingStop = 1500;
+            MillisecondsBeforeRecordingStart = 15;
+            IsRecording = false;
             
             await InitStorage().ConfigureAwait(false);
 
             await EnumerateInputDevices().ConfigureAwait(false);
             await EnumerateOutputDevices().ConfigureAwait(false);
 
-            await CreateAudioGraph().ConfigureAwait(continueOnCapturedContext: false);            
-            //StartMonitoring();
+            await CreateAudioGraph().ConfigureAwait(continueOnCapturedContext: false);
         }
 
         public async Task EnumerateInputDevices(bool forceEnumeration = false)
@@ -167,17 +170,24 @@ namespace RaceCommunicator
         public void StartMonitoring()
         {
             currentGraph.Start();
+            IsMonitoring = true;
+        }
+
+        public void StopMonitoring()
+        {
+            currentGraph.Stop();
+            IsMonitoring = false;
         }
 
         private void StartRecording()
         {
-            isRecording = true;
+            IsRecording = true;
             fileOutputNode.Start();
         }
 
         private void StopRecording()
         {
-            isRecording = false;
+            IsRecording = false;
             fileOutputNode.Stop();
         }
 
@@ -290,23 +300,23 @@ namespace RaceCommunicator
             }
             ProcessAudioFrame(frame);
 
-            if (LastObservedDecibelValue > RecordingThreshold && !isRecording)
+            if (LastObservedDecibelValue > RecordingThreshold && !IsRecording)
             {
-                numSamplesOverThreshold++;
-                if (numSamplesOverThreshold > numSamplesToWaitBeforeRecordingStart)
+                millisecondsOverThreshold += (int)frame.Duration.Value.TotalMilliseconds;
+                if (millisecondsOverThreshold > MillisecondsBeforeRecordingStart)
                 {
                     StartRecording();
-                    numSamplesUnderThreshold = 0;
+                    millisecondsUnderThreshold = 0;
                 }
             }
-            else if (LastObservedDecibelValue < RecordingThreshold && isRecording)
+            else if (LastObservedDecibelValue < RecordingThreshold && IsRecording)
             {
-                numSamplesUnderThreshold++;                
+                millisecondsUnderThreshold += (int)frame.Duration.Value.TotalMilliseconds;
 
-                if (numSamplesUnderThreshold > numSamplesToWaitBeforeRecordingStop)
+                if (millisecondsUnderThreshold > MillisecondsBeforeRecordingStop)
                 {
                     StopRecording();
-                    numSamplesOverThreshold = 0;
+                    millisecondsOverThreshold = 0;
                 }
             }
         }

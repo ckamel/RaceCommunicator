@@ -8,15 +8,19 @@
     mc:Ignorable="d">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-        <ComboBox x:Name="recordingDeviceComboBox" HorizontalAlignment="Left" Margin="167,49,0,0" VerticalAlignment="Top" Width="420" SelectionChanged="recordingDeviceComboBox_SelectionChanged"/>
+        <ComboBox x:Name="recordingDeviceComboBox" HorizontalAlignment="Left" Margin="248,49,0,0" VerticalAlignment="Top" Width="420" SelectionChanged="recordingDeviceComboBox_SelectionChanged"/>
         <TextBlock x:Name="textBlock" HorizontalAlignment="Left" Height="32" Margin="10,54,0,0" TextWrapping="Wrap" Text="Recording Devices" VerticalAlignment="Top" Width="212"/>
         <TextBlock x:Name="textBlock_Copy" HorizontalAlignment="Left" Height="32" Margin="10,115,0,0" TextWrapping="Wrap" Text="Speakers" VerticalAlignment="Top" Width="117"/>
-        <ComboBox x:Name="outputDeviceComboBox" HorizontalAlignment="Left" Margin="167,110,0,0" VerticalAlignment="Top" Width="420" SelectionChanged="outputDeviceComboBox_SelectionChanged"/>
-        <Button x:Name="startButton" Content="Start" HorizontalAlignment="Left" Margin="167,174,0,0" VerticalAlignment="Top" Width="144" BorderBrush="#FF0EEE15" IsEnabled="False" Click="startButton_Click"/>
-        <TextBox x:Name="decibelTextbox" HorizontalAlignment="Left" Margin="167,239,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" IsEnabled="False"/>
+        <ComboBox x:Name="outputDeviceComboBox" HorizontalAlignment="Left" Margin="248,110,0,0" VerticalAlignment="Top" Width="420" SelectionChanged="outputDeviceComboBox_SelectionChanged"/>
+        <Button x:Name="startButton" Content="Go" HorizontalAlignment="Left" Margin="248,175,0,0" VerticalAlignment="Top" Width="420" BorderBrush="#FF0EEE15" IsEnabled="False" Click="startButton_Click" IsDoubleTapEnabled="False"/>
+        <TextBox x:Name="decibelTextbox" HorizontalAlignment="Left" Margin="248,239,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" IsEnabled="False"/>
         <TextBlock x:Name="textBlock_Copy1" HorizontalAlignment="Left" Height="32" Margin="10,239,0,0" TextWrapping="Wrap" Text="Volume" VerticalAlignment="Top" Width="117"/>
-        <TextBlock x:Name="textBlock_Copy2" HorizontalAlignment="Left" Height="32" Margin="10,288,0,0" TextWrapping="Wrap" Text="Recording Threshold" VerticalAlignment="Top" Width="144"/>
-        <Slider x:Name="slider" HorizontalAlignment="Left" Margin="167,281,0,0" VerticalAlignment="Top" Width="786" Maximum="100" ValueChanged="slider_ValueChanged" Value="10"/>
+        <TextBlock x:Name="textBlock_Copy2" HorizontalAlignment="Left" Height="32" Margin="10,288,0,0" TextWrapping="Wrap" Text="Volume Threshold" VerticalAlignment="Top" Width="144" ToolTipService.ToolTip="Sound volume above this threshold will be considered valid speech and recording will start."/>
+        <Slider x:Name="sliderVolumeThreshold" HorizontalAlignment="Left" Margin="248,281,0,0" VerticalAlignment="Top" Width="421" Maximum="100" ValueChanged="slider_ValueChanged" Value="10"/>
+        <TextBlock x:Name="textBlock_Copy3" HorizontalAlignment="Left" Height="32" Margin="10,336,0,0" TextWrapping="Wrap" Text="Milliseconds before recording" VerticalAlignment="Top" Width="214" ToolTipService.ToolTip="Sound that stays above the volume threshold for this duration will trigger recording. Smaller values mean you don't lose much of the message before recording it, but are prone to recording false noise."/>
+        <Slider x:Name="sliderMillisecondsBeforeRecording" HorizontalAlignment="Left" Margin="248,329,0,0" VerticalAlignment="Top" Width="421" Maximum="1000" ValueChanged="slider_ValueChanged" Value="20" TickFrequency="50" LargeChange="10"/>
+        <Slider x:Name="sliderMillisecondAfterRecording" HorizontalAlignment="Left" Margin="247,371,0,0" VerticalAlignment="Top" Width="421" Maximum="3000" ValueChanged="slider_ValueChanged" Value="1000" TickFrequency="100" LargeChange="50" Minimum="100" SmallChange="10" StepFrequency="10"/>
+        <TextBlock x:Name="textBlock_Copy4" HorizontalAlignment="Left" Height="32" Margin="8,378,0,0" TextWrapping="Wrap" Text="Milliseconds before stopping" VerticalAlignment="Top" Width="214" ToolTipService.ToolTip="When sound is below the volume threshold for this duration recording will stop. Smaller values mean you don't record white noise at the end of transmission, but are prone to stop recording in the middle of a message."/>
 
     </Grid>
 </Page>

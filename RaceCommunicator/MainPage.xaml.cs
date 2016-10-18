@@ -45,7 +45,9 @@ namespace RaceCommunicator
             AudioEngine.Instance.Initialize();
 
             SetupUIRefreshTimer();
-            slider.Value = AudioEngine.Instance.RecordingThreshold * 100;
+            sliderVolumeThreshold.Value = AudioEngine.Instance.RecordingThreshold * 100;
+            sliderMillisecondsBeforeRecording.Value = (int)AudioEngine.Instance.MillisecondsBeforeRecordingStart;
+            sliderMillisecondAfterRecording.Value = (int)AudioEngine.Instance.MillisecondsBeforeRecordingStop;
         }
 
         private void SetupUIRefreshTimer()
@@ -59,6 +61,27 @@ namespace RaceCommunicator
         private void RefreshUI(object sender, object e)
         {
             decibelTextbox.Text = (AudioEngine.Instance.LastObservedDecibelValue * 100).ToString();
+
+            string buttonTextPrefix, buttonTextSuffix = string.Empty;
+            if (AudioEngine.Instance.IsMonitoring)
+            {
+                buttonTextPrefix = "Stop";
+            }
+            else
+            {
+                buttonTextPrefix = "Start";
+            }
+
+            if (AudioEngine.Instance.IsRecording)
+            {
+                buttonTextSuffix = "Recording...";
+            }
+            else if (AudioEngine.Instance.IsMonitoring)
+            {
+                buttonTextSuffix = "Monitoring...";
+            }
+
+            startButton.Content = $"{buttonTextPrefix} - {buttonTextSuffix}";
         }
 
         private async void OnInputDevicesAvailable(object sender, EventArgs e)
@@ -126,12 +149,32 @@ namespace RaceCommunicator
 
         private void startButton_Click(object sender, RoutedEventArgs e)
         {
-            AudioEngine.Instance.StartMonitoring();
+            Button eventSender = sender as Button;
+            if (AudioEngine.Instance.IsMonitoring)
+            {
+                AudioEngine.Instance.StopMonitoring();
+            }
+            else
+            {
+                AudioEngine.Instance.StartMonitoring();
+            }
         }
 
         private void slider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
-            AudioEngine.Instance.RecordingThreshold = e.NewValue / 100.0;
+            Slider eventSender = sender as Slider;
+            if (eventSender == sliderVolumeThreshold)
+            {
+                AudioEngine.Instance.RecordingThreshold = e.NewValue / 100.0;
+            }
+            else if (eventSender == sliderMillisecondAfterRecording)
+            {
+                AudioEngine.Instance.MillisecondsBeforeRecordingStop = (int)e.NewValue;
+            }
+            else if (eventSender == sliderMillisecondsBeforeRecording)
+            {
+                AudioEngine.Instance.MillisecondsBeforeRecordingStart = (int)e.NewValue;
+            }
         }
     }
 }
