@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using Windows.Devices.Enumeration;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Media.Devices;
+using Windows.Storage;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -29,6 +32,7 @@ namespace RaceCommunicator
     {
 
         private DispatcherTimer refreshTimer;
+        private bool isMessageListInitialized = false;
 
         public MainPage()
         {
@@ -48,6 +52,23 @@ namespace RaceCommunicator
             sliderVolumeThreshold.Value = AudioEngine.Instance.RecordingThreshold * 100;
             sliderMillisecondsBeforeRecording.Value = (int)AudioEngine.Instance.MillisecondsBeforeRecordingStart;
             sliderMillisecondAfterRecording.Value = (int)AudioEngine.Instance.MillisecondsBeforeRecordingStop;
+        }
+
+        private async void InitializeMessagesList()
+        {
+            Regex fileNameFormat = new Regex(@"^(\d{4})(\d{2})(\d{2})_(\d{2})_(\d{2})_(\d{2})");
+            StorageFolder folderToEnumerate = AudioEngine.Instance.SaveFolder;
+            foreach (var file in await folderToEnumerate.GetFilesAsync())
+            {
+                var match = fileNameFormat.Match(file.Name);
+                if (match.Groups.Count == 7)
+                {
+                    string dateString = match.Groups[0].Value;
+                    DateTime messageTime = DateTime.ParseExact(dateString, "yyyyMMdd_HH_mm_ss", CultureInfo.InvariantCulture);
+                    messagesList.Items.Add(messageTime);
+                }
+            }
+            isMessageListInitialized = true;
         }
 
         private void SetupUIRefreshTimer()
@@ -82,6 +103,11 @@ namespace RaceCommunicator
             }
 
             startButton.Content = $"{buttonTextPrefix} - {buttonTextSuffix}";
+
+            if (AudioEngine.Instance.IsInitialized && !isMessageListInitialized)
+            {
+                InitializeMessagesList();
+            }
         }
 
         private async void OnInputDevicesAvailable(object sender, EventArgs e)
@@ -175,6 +201,11 @@ namespace RaceCommunicator
             {
                 AudioEngine.Instance.MillisecondsBeforeRecordingStart = (int)e.NewValue;
             }
+        }
+
+        private void messagesList_Tapped(object sender, TappedRoutedEventArgs e)
+        {
+            //TODO find the file and play it.
         }
     }
 }
