@@ -22,7 +22,7 @@
         <Slider x:Name="sliderMillisecondAfterRecording" HorizontalAlignment="Left" Margin="247,371,0,0" VerticalAlignment="Top" Width="421" Maximum="3000" ValueChanged="slider_ValueChanged" Value="1000" TickFrequency="100" LargeChange="50" Minimum="100" SmallChange="10" StepFrequency="10"/>
         <TextBlock x:Name="textBlock_Copy4" HorizontalAlignment="Left" Height="32" Margin="8,378,0,0" TextWrapping="Wrap" Text="Milliseconds before stopping" VerticalAlignment="Top" Width="214" ToolTipService.ToolTip="When sound is below the volume threshold for this duration recording will stop. Smaller values mean you don't record white noise at the end of transmission, but are prone to stop recording in the middle of a message."/>
         <StackPanel Height="597" Margin="788,26,32,0" VerticalAlignment="Top" Background="#FF6EF27E">
-            <ListView x:Name="messagesList" Height="572" Tapped="messagesList_Tapped"/>
+            <ListView x:Name="messagesList" Height="572" ItemClick="messagesList_ItemClick" SelectionChanged="messagesList_SelectionChanged"/>
         </StackPanel>
 
     </Grid>

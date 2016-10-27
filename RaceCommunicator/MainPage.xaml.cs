@@ -33,6 +33,7 @@ namespace RaceCommunicator
 
         private DispatcherTimer refreshTimer;
         private bool isMessageListInitialized = false;
+        private static readonly Regex fileNameFormat = new Regex(@"^(\d{4})(\d{2})(\d{2})_(\d{2})_(\d{2})_(\d{2})");
 
         public MainPage()
         {
@@ -56,19 +57,30 @@ namespace RaceCommunicator
 
         private async void InitializeMessagesList()
         {
-            Regex fileNameFormat = new Regex(@"^(\d{4})(\d{2})(\d{2})_(\d{2})_(\d{2})_(\d{2})");
+
             StorageFolder folderToEnumerate = AudioEngine.Instance.SaveFolder;
             foreach (var file in await folderToEnumerate.GetFilesAsync())
             {
-                var match = fileNameFormat.Match(file.Name);
-                if (match.Groups.Count == 7)
+                DateTime recordingTime;
+                if (TryGetTimeFromFileName(file.Name, out recordingTime))
                 {
-                    string dateString = match.Groups[0].Value;
-                    DateTime messageTime = DateTime.ParseExact(dateString, "yyyyMMdd_HH_mm_ss", CultureInfo.InvariantCulture);
-                    messagesList.Items.Add(messageTime);
+                    messagesList.Items.Add(recordingTime);
                 }
             }
             isMessageListInitialized = true;
+            AudioEngine.Instance.NewRecordingSaved += OnNewRecordingAvailable;
+        }
+
+        private bool TryGetTimeFromFileName(string fileName, out DateTime recordingTime)
+        {
+            recordingTime = DateTime.MinValue;
+            var match = fileNameFormat.Match(fileName);
+            if (match.Groups.Count != 7)
+                return false;
+
+            string dateString = match.Groups[0].Value;
+            recordingTime = DateTime.ParseExact(dateString, "yyyyMMdd_HH_mm_ss", CultureInfo.InvariantCulture);
+            return true;
         }
 
         private void SetupUIRefreshTimer()
@@ -153,7 +165,7 @@ namespace RaceCommunicator
                     outputDeviceComboBox.SelectedIndex = 0;
                 }
             });
-            
+
         }
 
         private void recordingDeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -203,9 +215,30 @@ namespace RaceCommunicator
             }
         }
 
-        private void messagesList_Tapped(object sender, TappedRoutedEventArgs e)
+        private async void OnNewRecordingAvailable(object sender, EventArgs e)
         {
-            //TODO find the file and play it.
+            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal,
+           () =>
+           {
+               NewRecordingSavedEventArgs args = e as NewRecordingSavedEventArgs;
+               DateTime recordingTime;
+               if (TryGetTimeFromFileName(args.FileName, out recordingTime))
+               {
+                   messagesList.Items.Add(recordingTime);
+                   messagesList.ScrollIntoView(messagesList.Items[messagesList.Items.Count - 1]);
+               }
+
+           });
+        }
+
+        private void messagesList_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            AudioEngine.Instance.Playback((DateTime)e.ClickedItem);
+        }
+
+        private void messagesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            AudioEngine.Instance.Playback((DateTime)e.AddedItems[0]);
         }
     }
 }
