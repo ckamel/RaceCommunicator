@@ -72,7 +72,7 @@ namespace RaceCommunicator
 
         private AudioDeviceOutputNode playbackOutputNode;
         private AudioFileInputNode playbackFileNode;
-        
+
         private int millisecondsUnderThreshold = 0;
         private int millisecondsOverThreshold = 0;
         public int MillisecondsBeforeRecordingStop { get; set; }
@@ -115,18 +115,18 @@ namespace RaceCommunicator
         public async Task Initialize()
         {
             LastObservedDecibelValue = 0;
-            RecordingThreshold = 0.02;
+            RecordingThreshold = 0.01;
             MillisecondsBeforeRecordingStop = 1500;
             MillisecondsBeforeRecordingStart = 15;
             isRecording = false;
-            
+
             await InitStorage().ConfigureAwait(false);
 
             await EnumerateInputDevices().ConfigureAwait(false);
             await EnumerateOutputDevices().ConfigureAwait(false);
 
-            await CreateRecordingAudioGraph().ConfigureAwait(continueOnCapturedContext: false);
-            await CreatePlaybackAudioGraph().ConfigureAwait(continueOnCapturedContext: false);
+            //await CreateRecordingAudioGraph().ConfigureAwait(continueOnCapturedContext: false);
+            //await CreatePlaybackAudioGraph().ConfigureAwait(continueOnCapturedContext: false);
             IsInitialized = true;
         }
 
@@ -162,7 +162,7 @@ namespace RaceCommunicator
             OnOutputDevicesEnumerated(EventArgs.Empty);
         }
 
-        public void SelectInputDevice(DeviceInformation selectedDevice)
+        public async void SelectInputDevice(DeviceInformation selectedDevice)
         {
             if (SelectedInputDevice == selectedDevice)
             {
@@ -172,13 +172,18 @@ namespace RaceCommunicator
             bool canStartRecordingBefore = CanStartRecording();
             SelectedInputDevice = selectedDevice;
             bool canStartRecordingAfter = CanStartRecording();
+            if (canStartRecordingAfter)
+            {
+                await CreateRecordingAudioGraph();
+            }
+
             if (canStartRecordingAfter != canStartRecordingBefore)
             {
                 OnRecordingEnabledChanged(canStartRecordingAfter);
             }
         }
 
-        public void SelectOutputDevice(DeviceInformation selectedDevice)
+        public async void SelectOutputDevice(DeviceInformation selectedDevice)
         {
             if (SelectedOutputDevice == selectedDevice)
             {
@@ -188,6 +193,13 @@ namespace RaceCommunicator
             bool canStartRecordingBefore = CanStartRecording();
             SelectedOutputDevice = selectedDevice;
             bool canStartRecordingAfter = CanStartRecording();
+            if (canStartRecordingAfter)
+            {
+                await CreateRecordingAudioGraph();
+                await CreatePlaybackAudioGraph();
+
+            }
+
             if (canStartRecordingAfter != canStartRecordingBefore)
             {
                 OnRecordingEnabledChanged(canStartRecordingAfter);
@@ -225,7 +237,7 @@ namespace RaceCommunicator
             lastRecordingStartTime = DateTime.Now;
         }
 
-        private void StopRecording()
+        private async void StopRecording()
         {
             if (!isRecording)
             {
@@ -239,7 +251,7 @@ namespace RaceCommunicator
             fileOutputNode.Stop();
             string recordedFileName = lastCreatedFileName;
             //Recreate the node to get a new file
-            CreateAndConnectFileSaveNode(deviceInputNode);
+            await CreateAndConnectFileSaveNode(deviceInputNode);
             string oldFilePath = Path.Combine(storageFolder.Path, recordedFileName);
             string newFilePath = Path.Combine(storageFolder.Path, GetRecordingFileName());
             File.Move(oldFilePath, newFilePath);
@@ -323,18 +335,19 @@ namespace RaceCommunicator
             string recordingFileName = GetRecordingFileName(recordingTime);
             string filePath = Path.Combine(storageFolder.Path, recordingFileName);
             StorageFile file = await StorageFile.GetFileFromPathAsync(filePath);
-            
+
             var nodeCreationResult = await currentPlaybackGraph.CreateFileInputNodeAsync(file);
             if (nodeCreationResult.Status != AudioFileNodeCreationStatus.Success)
             {
                 throw new Exception($"Failed to play back file with node creation result {nodeCreationResult.Status}");
             }
             playbackFileNode = nodeCreationResult.FileInputNode;
-            playbackFileNode.AddOutgoingConnection(playbackOutputNode);            
+            playbackFileNode.AddOutgoingConnection(playbackOutputNode);
         }
 
         private async Task<bool> CreateRecordingAudioGraph()
         {
+            bool success = true;
             DisposeCurrentRecordingGraph();
             AudioGraphSettings settings = new AudioGraphSettings(AudioRenderCategory.Speech);
             settings.PrimaryRenderDevice = SelectedOutputDevice;
@@ -345,33 +358,33 @@ namespace RaceCommunicator
             {
                 // Cannot create graph
                 //rootPage.NotifyUser(String.Format("AudioGraph Creation Error because {0}", result.Status.ToString()), NotifyType.ErrorMessage);
-                return false;
+                success = false;
             }
 
             currentRecordingGraph = result.Graph;
 
             if (!await CreateInputNode())
             {
-                return false;
+                success = false;
             }
 
-            if (!await CreateAndConnectFileSaveNode(deviceInputNode))
+            if (success && !await CreateAndConnectFileSaveNode(deviceInputNode))
             {
-                return false;
+                success = false;
             }
 
             CreateMonitoringNode();
 
             // Create a device output node
-            if (! await CreateAndConnectOutputNode(deviceInputNode))
+            if (success && !await CreateAndConnectOutputNode(deviceInputNode))
             {
-                return false;
+                success = false;
             }
 
-            fileOutputNode.Stop();
-            deviceInputNode.AddOutgoingConnection(monitoringNode);
+            fileOutputNode?.Stop();
+            deviceInputNode?.AddOutgoingConnection(monitoringNode);
 
-            return true;            
+            return success;
             //rootPage.NotifyUser("Graph successfully created!", NotifyType.StatusMessage);
         }
 
@@ -515,7 +528,7 @@ namespace RaceCommunicator
             lastCreatedFileName = $"Recording{recordingCount}.mp3";
             recordingCount++;
             StorageFile file = await storageFolder.CreateFileAsync(lastCreatedFileName, CreationCollisionOption.ReplaceExisting);
-            
+
             MediaEncodingProfile fileProfile = MediaEncodingProfile.CreateMp3(AudioEncodingQuality.High);
             CreateAudioFileOutputNodeResult fileOutputNodeResult = await currentRecordingGraph.CreateFileOutputNodeAsync(file, fileProfile);
 
@@ -524,8 +537,9 @@ namespace RaceCommunicator
                 // FileOutputNode creation failed
                 return false;
             }
-            
+
             fileOutputNode = fileOutputNodeResult.FileOutputNode;
+            fileOutputNode.Stop();
             inputNode.AddOutgoingConnection(fileOutputNode);
             return true;
 
@@ -543,10 +557,14 @@ namespace RaceCommunicator
 
         private void DisposeCurrentRecordingGraph()
         {
-            if(currentRecordingGraph != null)
+            if (currentRecordingGraph != null)
             {
                 currentRecordingGraph.Dispose();
                 currentRecordingGraph = null;
+                deviceInputNode = null;
+                fileOutputNode = null;
+                monitoringNode = null;
+                deviceOutputNode = null;
             }
         }
 
@@ -556,6 +574,8 @@ namespace RaceCommunicator
             {
                 currentPlaybackGraph.Dispose();
                 currentPlaybackGraph = null;
+                playbackOutputNode = null;
+                playbackFileNode = null;
             }
         }
 
@@ -594,7 +614,7 @@ namespace RaceCommunicator
 
         private async Task InitStorage()
         {
-            var rootFolder =  Windows.Storage.KnownFolders.MusicLibrary;
+            var rootFolder = Windows.Storage.KnownFolders.MusicLibrary;
             storageFolder = await rootFolder.CreateFolderAsync("RaceCommunicator", CreationCollisionOption.OpenIfExists);
         }
     }

@@ -1,2 +1,2 @@
-MainPackage=C:\Users\vadav\documents\visual studio 2015\Projects\RaceCommunicator\RaceCommunicator\bin\x86\Release\RaceCommunicator_0.5.0.0_x86.appx
-SymbolPackage=C:\Users\vadav\Documents\Visual Studio 2015\RaceCommPackage\RaceCommunicator_0.5.0.0_Test\RaceCommunicator_0.5.0.0_x86.appxsym
+MainPackage=C:\Users\vadav\documents\visual studio 2015\Projects\RaceCommunicator\RaceCommunicator\bin\x86\Release\RaceCommunicator_0.5.1.0_x86.appx
+SymbolPackage=C:\Users\vadav\Documents\Visual Studio 2015\RaceCommPackage\RaceCommunicator_0.5.1.0_Test\RaceCommunicator_0.5.1.0_x86.appxsym
